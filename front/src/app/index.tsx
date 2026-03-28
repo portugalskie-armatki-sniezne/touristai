@@ -8,7 +8,6 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { VisionScanner } from '@/components/VisionScanner';
 
 function getDevMenuHint() {
   if (Platform.OS === 'web') {
@@ -55,8 +54,6 @@ export default function HomeScreen() {
             hint={<ThemedText type="code">npm run reset-project</ThemedText>}
           />
         </ThemedView>
-
-        <VisionScanner></VisionScanner>
 
         {Platform.OS === 'web' && <WebBadge />}
       </SafeAreaView>
