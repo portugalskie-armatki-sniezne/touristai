@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   });
 
   useEffect(() => {
-    // ODkomentuj poniższą linię, aby WYMUSIĆ reset przy każdym odświeżeniu:
+    // Odkomentuj poniższą linię, aby WYMUSIĆ reset przy każdym odświeżeniu:
     AsyncStorage.clear(); 
     
     checkLocalUser();
