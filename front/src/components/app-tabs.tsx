@@ -18,7 +18,7 @@ export default function AppTabs() {
         selected: { color: cyanColor }
       }}>
       
-      <NativeTabs.Trigger name="index">
+      <NativeTabs.Trigger name="visited">
         <NativeTabs.Trigger.Label>Visited</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           src={require('@/assets/images/tabIcons/monument.png')}
@@ -26,13 +26,12 @@ export default function AppTabs() {
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="camera">
-        <View style={styles.cameraWrapper}>
-          <NativeTabs.Trigger.Icon
-            src={require('@/assets/images/tabIcons/camera.png')}
-            renderingMode="template"
-          />
-        </View>
+      <NativeTabs.Trigger name="index">
+        <NativeTabs.Trigger.Label>Camera</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          src={require('@/assets/images/tabIcons/camera.png')}
+          renderingMode="template"
+        />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="profile">

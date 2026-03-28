@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image as RNImage } from 'react-native';
 import { Image } from 'expo-image';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { SymbolView } from 'expo-symbols';
@@ -46,7 +46,10 @@ export const VisionScanner = () => {
                     />
                 ) : (
                     <View style={styles.emptyState}>
-                        <SymbolView name="camera.viewfinder" size={48} tintColor="#333" />
+                        <RNImage 
+                            source={require('@/assets/images/tabIcons/camera.png')} 
+                            style={{ width: 48, height: 48, tintColor: '#333' }} 
+                        />
                         <Text style={styles.emptyText}>Camera Ready</Text>
                     </View>
                 )}
@@ -55,7 +58,10 @@ export const VisionScanner = () => {
             {/* Panel dolny - Tylko przyciski akcji */}
             <View style={styles.footer}>
                 <TouchableOpacity style={styles.button} onPress={openCamera}>
-                    <SymbolView name="camera.fill" size={24} tintColor="#000" />
+                    <RNImage 
+                        source={require('@/assets/images/tabIcons/camera.png')} 
+                        style={{ width: 24, height: 24, tintColor: '#000' }} 
+                    />
                     <Text style={styles.buttonText}>New Photo</Text>
                 </TouchableOpacity>
 
@@ -95,11 +101,17 @@ const styles = StyleSheet.create({
     },
     footer: {
         flexDirection: 'row',
-        padding: 24,
+        paddingHorizontal: 24,
+        paddingTop: 16,
+        paddingBottom: 24, // Extra padding to sit above the navigation bar comfortably
         gap: 16,
         backgroundColor: '#000',
         borderTopWidth: 1,
         borderTopColor: '#111',
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
     },
     button: {
         flex: 1,
