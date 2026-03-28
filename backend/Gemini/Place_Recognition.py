@@ -14,51 +14,59 @@ genai.configure(api_key=GOOGLE_API_KEY)
 
 class PlaceInfo(BaseModel):
     name: str = Field(description="The name of the building or place")
+    street: str = Field(description="The street name where the place is located")
     city: str = Field(description="The city where the place is located")
+    region: str = Field(description="The state, province, or region where the place is located")
     country: str = Field(description="The country where the place is located")
-    tour_guide_description: str = Field(description="The 200-300-word 'Tour Guide' style narrative and historical fact")
+    tour_guide_description: list[str] = Field(description="Objective, factual description points to make it easy to read. Must include estimated average rating (e.g. 4.5/5) and average price level if applicable.")
     is_landmark: bool = Field(description="True if it is a well-known landmark, False otherwise")
     is_restaurant_or_hotel: bool = Field(description="True if it is a restaurant, cafe, or hotel")
     internet_opinions: str = Field(description="If restaurant/hotel, summarize internet opinions and reviews. Otherwise empty string.")
     booking_or_menu_link: str = Field(description="If restaurant/hotel, provide a link to the menu or booking site. Otherwise empty string.")
+
+def compile_preferences(preferred_language: str, preferences_json: str = None) -> str:
+    """
+    Merges preferred_language and preferences_json into a unified preferences JSON string.
+    """
+    prefs = {"preferred_language": preferred_language}
+    if preferences_json:
+        try:
+            user_prefs = json.loads(preferences_json)
+            if isinstance(user_prefs, dict):
+                prefs.update(user_prefs)
+        except Exception:
+            pass
+    return json.dumps(prefs, ensure_ascii=False)
 
 def recognize_landmark(image_path: str, long: float, lat: float, preferences_json: str = None) -> dict:
     """
     Identifies a landmark from an image path and coordinates using Gemini Flash.
     Returns the raw JSON data of the recognized object as a dictionary.
     """
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    model = genai.GenerativeModel('gemini-3-flash-preview')
 
     try:
         if not os.path.exists(image_path):
             return {"error": f"File not found at {image_path}"}
 
         sample_file = PIL.Image.open(image_path)
-
         prompt = (
-            "You are an expert virtual tour guide giving a world tour. Your tone is engaging, "
-            "knowledgeable, and witty. You specialize in connecting visual landmarks with "
-            "geographic and historical context. "
+            "You are an objective, highly factual travel assistant. Your tone is neutral and informative, not overly enthusiastic. "
+            f"Make sure you fulfil user preferences: {preferences_json}. "
+            "You specialize in identifying visual landmarks and providing objective geographic context. As an expert do not be afraid to admit you do not know. Do not hallucinate. "
             f"Identify the building or place in this image. "
             f"The image was taken near coordinates: longitude {long}, latitude {lat}. "
+            "CRITICAL REQUIREMENT: Heavy emphasis must be placed on analyzing the provided longitude and latitude to correctly deduce the location in the first stage.\n"
             "\nTasks:\n"
-            "1. Identify the name, city, and country of the place.\n"
-            "2. Provide a 'Tour Guide' style description with one fascinating historical fact it should be 200-300 words long.\n"
-            "3. Make it an interesting narrative for the reader.\n"
-            "4. If the specific building is not a famous landmark or is unknown:\n"
+            "1. Identify the name, street, city, region, and country of the place.\n"
+            "2. Provide an objective, factual description as a list of distinct points. You MUST include the estimated average rating (x/5) and average price level or cost in these points.\n"
+            "3. Provide raw non-formatted location data about this landmark.\n"
+            "4. If the specific building is not a famous landmark or is unknown or you are not sure:\n"
             "   - Identify the architectural style and distinguishing features of the area.\n"
             "   - Provide information about the broader region.\n"
             "   - Mention 2-3 other famous landmarks in the surrounding vicinity to provide context.\n"
-            "5. If the place is a restaurant or hotel, fetch/summarize internet opinions and provide a link to the menu or booking site."
+            "5. If the place is a restaurant or hotel, fetch/summarize internet opinions and provide a link to the menu or booking site.\n\n"
         )
-
-        if preferences_json:
-            try:
-                prefs = json.loads(preferences_json)
-                prefs_str = ", ".join(f"{k}: {v}" for k, v in prefs.items())
-                prompt += f"\n\nIMPORTANT: Tailor your response and description based on these user preferences: {prefs_str}."
-            except Exception:
-                pass
 
         # Using structured output for internal consistency
         response = model.generate_content(
@@ -70,60 +78,141 @@ def recognize_landmark(image_path: str, long: float, lat: float, preferences_jso
         )
 
         if response and response.text:
-            return json.loads(response.text)
+            raw_data = json.loads(response.text)
+            
+            if raw_data.get("is_restaurant_or_hotel"):
+                name = raw_data.get("name", "Unknown Name")
+                city = raw_data.get("city", "Unknown City")
+                country = raw_data.get("country", "Unknown Country")
+                
+                class RestaurantSearch(BaseModel):
+                    internet_opinions: str = Field(description="Summarized internet opinions and reviews")
+                    booking_or_menu_link: str = Field(description="Link to the booking site or menu")
+                    
+                prompt2 = (
+                    f"Search for the restaurant or hotel named '{name}' in {city}, {country}. "
+                    "Summarize its internet reviews and opinions, and provide a URL to its menu or booking site.\n"
+                    f"CRITICAL REQUIREMENT: Make sure you fulfil user preferences: {preferences_json}"
+                )
+                try:
+                    res2 = model.generate_content(
+                        prompt2,
+                        generation_config=genai.GenerationConfig(
+                            response_mime_type="application/json",
+                            response_schema=RestaurantSearch
+                        )
+                    )
+                    if res2 and res2.text:
+                        extra_data = json.loads(res2.text)
+                        raw_data["internet_opinions"] = extra_data.get("internet_opinions", "")
+                        raw_data["booking_or_menu_link"] = extra_data.get("booking_or_menu_link", "")
+                except Exception:
+                    pass
+                    
+            return raw_data
         
         return {"error": "The place could not be identified."}
 
     except Exception as e:
         return {"error": f"Error during recognition: {str(e)}"}
 
-def format_place_info(raw_data: dict, preferences_json: str = None) -> str:
+def format_landmark_info(raw_data: dict, preferences_json: str = None) -> str:
     """
-    Formats the raw dictionary data from recognize_landmark into a user-friendly string.
+    Formats the raw dictionary data specifically for landmarks.
     """
     if "error" in raw_data:
         return raw_data["error"]
         
-    name = raw_data.get("name", "Unknown Place")
-    city = raw_data.get("city", "Unknown City")
-    country = raw_data.get("country", "Unknown Country")
-    desc = raw_data.get("tour_guide_description", "")
-    
-    # Default formatting
-    output = (
-        f"🌟 Recognized Object: {name}\n"
-        f"📍 Location: {city}, {country}\n\n"
-        f"📖 Virtual Tour:\n{desc}"
-    )
-    
-    if raw_data.get("is_restaurant_or_hotel"):
-        opinions = raw_data.get("internet_opinions", "")
-        link = raw_data.get("booking_or_menu_link", "")
-        if opinions:
-            output += f"\n\n🍽️ Internet Opinions:\n{opinions}"
-        if link:
-            output += f"\n\n🔗 Booking/Menu Link: {link}"
-    
     if preferences_json:
         try:
-            prefs = json.loads(preferences_json)
-            if prefs.get("format", "").lower() == "json":
-                return json.dumps(raw_data, indent=2)
-            elif prefs.get("format", "").lower() == "markdown":
-                output = f"## 🌟 {name}\n**📍 Location:** {city}, {country}\n\n### 📖 Virtual Tour:\n{desc}"
-                if raw_data.get("is_restaurant_or_hotel"):
-                    if raw_data.get("internet_opinions"):
-                        output += f"\n\n### 🍽️ Internet Opinions:\n{raw_data.get('internet_opinions')}"
-                    if raw_data.get("booking_or_menu_link"):
-                        output += f"\n\n### 🔗 Booking/Menu Link:\n[{raw_data.get('booking_or_menu_link')}]({raw_data.get('booking_or_menu_link')})"
-            elif prefs.get("short_version"):
-                output = f"{name} ({city}, {country})"
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            prompt = (
+                f"You are a helpful travel assistant. Format the following landmark information. "
+                f"Make sure you write the answer in the preferred language specified in the preferences. "
+                f"Make the description dynamic, readable, and creatively adapted to these exact user preferences: {preferences_json}. "
+                f"Feel free to use bullet points where it makes sense to improve readability.\n\n"
+                f"Landmark Data: {json.dumps(raw_data, ensure_ascii=False)}"
+            )
+            response = model.generate_content(prompt)
+            if response and response.text:
+                return response.text.strip()
         except Exception:
             pass
             
+    name = raw_data.get("name", "Unknown Place")
+    city = raw_data.get("city", "Unknown City")
+    country = raw_data.get("country", "Unknown Country")
+    desc_raw = raw_data.get("tour_guide_description", [])
+    if isinstance(desc_raw, list):
+        desc = "\n".join(f"- {d}" for d in desc_raw)
+    else:
+        desc = str(desc_raw)
+    
+    output = (
+        f"Recognized Object: {name}\n"
+        f"Location: {city}, {country}\n\n"
+        f"Virtual Tour:\n{desc}"
+    )
+            
     return output
 
-def get_city_transport_info(city: str, country: str) -> dict:
+def format_restaurant_info(raw_data: dict, preferences_json: str = None) -> str:
+    """
+    Formats raw dictionary data specifically for restaurants and hotels.
+    """
+    if "error" in raw_data:
+        return raw_data["error"]
+        
+    if preferences_json:
+        try:
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            prompt = (
+                f"You are a helpful travel assistant. Format the following restaurant/hotel information. "
+                f"Make sure you write the answer in the preferred language specified in the preferences. "
+                f"Make the description dynamic, readable, and creatively adapted to these exact user preferences: {preferences_json}. "
+                f"Feel free to use bullet points where it makes sense to improve readability.\n\n"
+                f"Make sure to include information about internet opinions and booking links from the Data.\n\n"
+                f"Data: {json.dumps(raw_data, ensure_ascii=False)}"
+            )
+            response = model.generate_content(prompt)
+            if response and response.text:
+                return response.text.strip()
+        except Exception:
+            pass
+            
+    name = raw_data.get("name", "Unknown Restaurant or Hotel")
+    city = raw_data.get("city", "Unknown City")
+    country = raw_data.get("country", "Unknown Country")
+    desc_raw = raw_data.get("tour_guide_description", [])
+    if isinstance(desc_raw, list):
+        desc = "\n".join(f"- {d}" for d in desc_raw)
+    else:
+        desc = str(desc_raw)
+    opinions = raw_data.get("internet_opinions", "")
+    link = raw_data.get("booking_or_menu_link", "")
+    
+    output = (
+        f"Recognized Object: {name}\n"
+        f"Location: {city}, {country}\n\n"
+        f"Description:\n{desc}"
+    )
+    
+    if opinions:
+        output += f"\n\nInternet Opinions:\n{opinions}"
+    if link:
+        output += f"\n\nBooking/Menu Link: {link}"
+            
+    return output
+
+def format_place_info(raw_data: dict, preferences_json: str = None) -> str:
+    """
+    Routes to the correct formatting function based on place type.
+    """
+    if raw_data.get("is_restaurant_or_hotel"):
+        return format_restaurant_info(raw_data, preferences_json)
+    return format_landmark_info(raw_data, preferences_json)
+
+def get_city_transport_info(city: str, country: str, preferences_json: str = None) -> dict:
     """
     Takes a city and country and returns useful links and practical information 
     for accessing subway or bus stations.
@@ -138,6 +227,7 @@ def get_city_transport_info(city: str, country: str) -> dict:
         f"Provide practical and useful information for navigating public transportation in {city}, {country}. "
         "Include details on how to access subway or bus stations, types of tickets, and provide useful official links "
         "for maps or transport authorities."
+        f"\nCRITICAL REQUIREMENT: Make sure you fulfil user preferences: {preferences_json}"
     )
     
     try:
@@ -153,40 +243,3 @@ def get_city_transport_info(city: str, country: str) -> dict:
         return {"error": "Could not fetch transport information."}
     except Exception as e:
         return {"error": f"Error fetching transport info: {str(e)}"}
-
-# Placeholder for FastAPI later
-"""
-from fastapi import APIRouter, UploadFile, File, Form
-router = APIRouter()
-
-@router.post("/recognize")
-async def recognize_place(
-    file: UploadFile = File(...), 
-    long: float = Form(...), 
-    lat: float = Form(...)
-):
-    # Logic to process upload and call recognize_landmark
-    pass
-"""
-
-if __name__ == "__main__":
-    # TEST BLOCK
-    image_file = "landmark.jpg"
-    # Example coordinates (e.g., Eiffel Tower area)
-    test_long = 2.2945
-    test_lat = 48.8584
-
-    print("--- Starting Place Recognition Test with Coordinates ---")
-    
-    if os.path.exists(image_file):
-        result_text = recognize_landmark(image_file, test_long, test_lat)
-        print(f"\n{result_text}")
-    else:
-        # Check if it's in the Gemini folder specifically if run from root
-        alt_path = os.path.join("Gemini", image_file)
-        if os.path.exists(alt_path):
-            result_text = recognize_landmark(alt_path, test_long, test_lat)
-            print(f"\n{result_text}")
-        else:
-            print(f"\n[!] Please place an image named '{image_file}' in the backend/ or Gemini/ folder to test.")
-            print(f"    Current working directory: {os.getcwd()}")
