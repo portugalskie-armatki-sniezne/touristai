@@ -9,6 +9,8 @@ WebBrowser.maybeCompleteAuthSession();
 type AuthContextType = {
   user: any;
   loading: boolean;
+  hasSeenPreferences: boolean;
+  setHasSeenPreferences: (value: boolean) => void;
   signIn: () => void;
   signOut: () => void;
 };
@@ -16,6 +18,8 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
+  hasSeenPreferences: false,
+  setHasSeenPreferences: () => {},
   signIn: () => {},
   signOut: () => {},
 });
@@ -25,6 +29,7 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [hasSeenPreferences, _setHasSeenPreferences] = useState(false);
 
   // Zastąp poniższe ID swoimi rzeczywistymi kluczami z Google Cloud Console
   const [request, response, promptAsync] = Google.useAuthRequest({
@@ -34,7 +39,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   });
 
   useEffect(() => {
+    // ODkomentuj poniższą linię, aby WYMUSIĆ reset przy każdym odświeżeniu:
+    AsyncStorage.clear(); 
+    
     checkLocalUser();
+    checkPreferences();
   }, []);
 
   useEffect(() => {
@@ -59,6 +68,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const checkPreferences = async () => {
+    try {
+      const val = await AsyncStorage.getItem('@hasSeenPreferences');
+      if (val === 'true') {
+        _setHasSeenPreferences(true);
+      }
+    } catch (e) {
+      console.error('Failed to load preferences status', e);
+    }
+  };
+
+  const setHasSeenPreferences = async (value: boolean) => {
+    try {
+      await AsyncStorage.setItem('@hasSeenPreferences', value ? 'true' : 'false');
+      _setHasSeenPreferences(value);
+    } catch (e) {
+      console.error('Failed to save preferences status', e);
+    }
+  };
+
   const getUserInfo = async (token: string) => {
     try {
       const res = await fetch('https://www.googleapis.com/userinfo/v2/me', {
@@ -72,17 +101,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const signIn = () => {
-    promptAsync();
+  const signIn = async () => {
+    // Placeholder: Set dummy user to proceed to preferences/app without real auth
+    const dummyUser = { name: 'Test User', email: 'test@example.com' };
+    await AsyncStorage.setItem('@user', JSON.stringify(dummyUser));
+    setUser(dummyUser);
   };
 
   const signOut = async () => {
     await AsyncStorage.removeItem('@user');
+    await AsyncStorage.removeItem('@hasSeenPreferences');
     setUser(null);
+    _setHasSeenPreferences(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, hasSeenPreferences, setHasSeenPreferences, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
