@@ -13,6 +13,13 @@ CREATE TABLE users (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- table for user's preferences
+CREATE TABLE user_preferences (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    preferred_language VARCHAR(50) NOT NULL,
+    preferred_style VARCHAR(50) NOT NULL,
+    
 
 -- table for user's uniqe visits
 CREATE TABLE visits (
@@ -24,7 +31,6 @@ CREATE TABLE visits (
     
     identified_object_name VARCHAR(255) NOT NULL,
     raw_facts TEXT,
-    stylized_summary TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
