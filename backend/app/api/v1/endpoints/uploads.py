@@ -1,8 +1,8 @@
 import os
 import tempfile
 import shutil
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from Gemini.Place_Recognition import recognize_landmark
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query
+from Gemini.Place_Recognition import recognize_landmark, format_place_info, get_city_transport_info
 
 router = APIRouter()
 
@@ -10,7 +10,8 @@ router = APIRouter()
 async def analyze_image(
     image: UploadFile = File(...),
     mag: float = Form(..., description="Latitude/Magnitude of where the photo was taken"),
-    long: float = Form(..., description="Longitude of where the photo was taken")
+    long: float = Form(..., description="Longitude of where the photo was taken"),
+    preferences: str = Form(None, description="Optional JSON string containing user preferences")
 ):
     if not image.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
@@ -22,10 +23,12 @@ async def analyze_image(
             shutil.copyfileobj(image.file, tmp)
             tmp_path = tmp.name
 
-        building_info = recognize_landmark(tmp_path, long, mag)
+        raw_data = recognize_landmark(tmp_path, long, mag, preferences)
+        formatted_info = format_place_info(raw_data, preferences)
         
         return {
-            "building_info": building_info,
+            "building_info": formatted_info,
+            "raw_data": raw_data,
             "coordinates": {"mag": mag, "long": long},
             "status": "success"
         }
@@ -34,3 +37,27 @@ async def analyze_image(
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
+@router.get("/transport")
+async def get_transport_info(
+    city: str = Query(..., description="The city name"),
+    country: str = Query(..., description="The country name")
+):
+    """
+    Fetches practical information and useful links for public transportation
+    in the specified city and country.
+    """
+    try:
+        transport_data = get_city_transport_info(city, country)
+        if "error" in transport_data:
+            raise HTTPException(status_code=500, detail=transport_data["error"])
+            
+        return {
+            "city": city,
+            "country": country,
+            "transport_info": transport_data.get("transport_info", ""),
+            "useful_links": transport_data.get("useful_links", []),
+            "status": "success"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching transport info: {str(e)}")
