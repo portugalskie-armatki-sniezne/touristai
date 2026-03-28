@@ -1,0 +1,77 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: touristai-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - ENV=development
+      - DOCKER_CONTAINER=true
+    volumes:
+      - .:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgis/postgis:15-3.4-alpine
+    container_name: touristai-db
+    environment:
+      - POSTGRES_USER=tourist_user
+      - POSTGRES_PASSWORD=tourist_password
+      - POSTGRES_DB=touristai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tourist_user -d touristai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  dbmate:
+    image: amacneil/dbmate
+    container_name: touristai-dbmate
+    restart: "no"
+    volumes:
+      - ./db:/db
+    environment:
+      - DATABASE_URL=postgres://tourist_user:tourist_password@db:5432/touristai?sslmode=disable
+      - DBMATE_MIGRATIONS_DIR=/db
+      - DBMATE_NO_DUMP=true
+    command: --no-dump-schema up
+    depends_on:
+      db:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    container_name: touristai-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+volumes:
+  postgres_data:
+  redis_data:
