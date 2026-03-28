@@ -1,10 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Ensure the browser closes properly after login
-WebBrowser.maybeCompleteAuthSession();
 
 type AuthContextType = {
   user: any;
@@ -34,58 +29,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [hasSeenPreferences, _setHasSeenPreferences] = useState(false);
 
-  // Pobieramy ID z .env (wymaga prefiksu EXPO_PUBLIC_ w Expo)
-  const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
-  
-  if (!googleClientId) {
-    console.warn('WARNING: EXPO_PUBLIC_GOOGLE_CLIENT_ID is not defined in .env file!');
-  }
-
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: googleClientId,
-    iosClientId: googleClientId,
-    webClientId: googleClientId,
-  });
-
+  // Wymuszenie czystego startu przy każdym przeładowaniu
   useEffect(() => {
-    checkLocalUser();
-    checkPreferences();
-  }, []);
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { authentication } = response;
-      if (authentication?.idToken) {
-        authenticateWithBackend(authentication.idToken);
-      }
-    }
-  }, [response]);
-
-  const checkLocalUser = async () => {
-    try {
-      const userJSON = await AsyncStorage.getItem('@user');
-      const savedToken = await AsyncStorage.getItem('@token');
-      if (userJSON && savedToken) {
-        setUser(JSON.parse(userJSON));
-        setToken(savedToken);
-      }
-    } catch (e) {
-      console.error('Failed to load user info', e);
-    } finally {
+    const forceReset = async () => {
+      await AsyncStorage.clear();
+      setUser(null);
+      setToken(null);
+      _setHasSeenPreferences(false);
       setLoading(false);
-    }
-  };
-
-  const checkPreferences = async () => {
-    try {
-      const val = await AsyncStorage.getItem('@hasSeenPreferences');
-      if (val === 'true') {
-        _setHasSeenPreferences(true);
-      }
-    } catch (e) {
-      console.error('Failed to load preferences status', e);
-    }
-  };
+    };
+    forceReset();
+  }, []);
 
   const setHasSeenPreferences = async (value: boolean) => {
     try {
@@ -96,31 +50,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const authenticateWithBackend = async (googleIdToken: string) => {
+  const signIn = async () => {
+    setLoading(true);
+    // Hardcoded user data
+    const dummyUser = {
+      id: "00000000-0000-0000-0000-000000000000",
+      username: "test_user",
+      email: "test@example.com",
+      full_name: "Test User",
+      profile_picture_url: "https://via.placeholder.com/150"
+    };
+    
+    // Dummy token (accepted by our modified backend)
+    const dummyToken = "dummy-jwt-token";
+
     try {
-      setLoading(true);
-      const res = await fetch('http://10.0.2.2:8000/api/v1/auth/google/authenticate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: googleIdToken }),
-      });
-      
-      const data = await res.json();
-      if (data.status === 'success') {
-        await AsyncStorage.setItem('@user', JSON.stringify(data.user));
-        await AsyncStorage.setItem('@token', data.access_token);
-        setUser(data.user);
-        setToken(data.access_token);
-      }
+      await AsyncStorage.setItem('@user', JSON.stringify(dummyUser));
+      await AsyncStorage.setItem('@token', dummyToken);
+      setUser(dummyUser);
+      setToken(dummyToken);
     } catch (e) {
-      console.error('Backend authentication failed', e);
+      console.error('Failed to sign in', e);
     } finally {
       setLoading(false);
     }
-  };
-
-  const signIn = async () => {
-    promptAsync();
   };
 
   const signOut = async () => {

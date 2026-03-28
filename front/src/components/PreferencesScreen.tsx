@@ -31,7 +31,7 @@ const InterestLevelSelector = ({ label, value, onValueChange }: { label: string,
 };
 
 export const PreferencesScreen = () => {
-  const { setHasSeenPreferences, signOut, token } = useAuth() as any;
+  const { setHasSeenPreferences, signOut } = useAuth() as any;
   const { generate, isReady } = useAI();
   const [language, setLanguage] = useState<'Polski' | 'English'>('English');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -47,24 +47,39 @@ export const PreferencesScreen = () => {
       let systemPrompt = "You are a helpful AI tour guide.";
       
       if (isReady) {
-        const prompt = `Generate a concise system prompt for yourself as an AI tour guide. 
-        The user has the following interests (0-100 scale): 
-        History: ${interests.history}, Sports: ${interests.sports}, Technology: ${interests.technology}.
-        The primary language should be ${language}. 
-        Tailor your personality and focus based on these weights. 
-        Output ONLY the system prompt text, nothing else.`;
-        
-        systemPrompt = await generate([
+        console.log('Generating persona with local LLM...');
+        // Prostszy, bardziej bezpośredni prompt
+        const prompt = `Write a short (2-3 sentences) persona description for an AI tour guide. 
+        User interests: History(${interests.history}/100), Sports(${interests.sports}/100), Technology(${interests.technology}/100).
+        Language: ${language}. 
+        Write only the persona description.`;
+
+        const rawResponse = await generate([
           { role: 'user', content: prompt }
         ]);
+
+        // Czyszczenie: bierzemy tylko pierwsze 300 znaków i upewniamy się, że to string
+        systemPrompt = String(rawResponse).split('\n')[0].substring(0, 300);
+
+        // Jeśli model zwrócił śmieci lub puste, użyj domyślnego
+        if (systemPrompt.length < 10 || systemPrompt.includes('system prompt text')) {
+           systemPrompt = `You are a helpful tour guide specialized in ${interests.history > 50 ? 'history' : 'general sightseeing'} and ${interests.technology > 50 ? 'tech' : 'culture'}. Respond in ${language}.`;
+        }
+
+        console.log('Cleaned Prompt:', systemPrompt);
+      }
+ else {
+        console.warn('AI Model not ready, using default prompt');
       }
 
-      // Send to backend
-      const response = await fetch('http://10.0.2.2:8000/api/v1/users/me/settings', {
+      // Send to backend (NO AUTH HEADER NEEDED NOW)
+      const backendUrl = 'http://10.0.2.2:8000/api/v1/users/me/settings';
+      console.log('Sending to backend:', backendUrl);
+      
+      const response = await fetch(backendUrl, {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           language: language === 'Polski' ? 'pl' : 'en',
@@ -73,14 +88,16 @@ export const PreferencesScreen = () => {
       });
 
       if (response.ok) {
+        console.log('Preferences saved successfully!');
         setHasSeenPreferences(true);
       } else {
-        console.error('Failed to save preferences to backend');
-        // Still proceed for demo purposes if needed, or show error
+        const errorText = await response.text();
+        console.error('Backend Error:', response.status, errorText);
+        // Still proceed for demo purposes
         setHasSeenPreferences(true);
       }
     } catch (e) {
-      console.error('Error generating system prompt or saving:', e);
+      console.error('Error in handleContinue:', e);
       setHasSeenPreferences(true);
     } finally {
       setIsGenerating(false);
@@ -139,7 +156,7 @@ export const PreferencesScreen = () => {
         </View>
 
         <TouchableOpacity 
-          style={[styles.continueButton, (isGenerating || !isReady) && styles.continueButtonDisabled]} 
+          style={[styles.continueButton, isGenerating && styles.continueButtonDisabled]} 
           onPress={handleContinue}
           disabled={isGenerating}
         >
@@ -147,10 +164,14 @@ export const PreferencesScreen = () => {
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={styles.continueButtonText}>
-              {isReady ? 'Continue' : 'Initializing AI...'}
+              Continue
             </Text>
           )}
         </TouchableOpacity>
+        
+        {!isReady && !isGenerating && (
+          <Text style={styles.aiStatus}>AI initializing in background...</Text>
+        )}
       </ScrollView>
     </View>
   );
@@ -269,4 +290,10 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: 'bold',
   },
+  aiStatus: {
+    marginTop: 10,
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+  }
 });
