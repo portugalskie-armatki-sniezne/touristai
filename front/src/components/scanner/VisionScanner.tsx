@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Image as RNImage, ActivityIndicator, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image as RNImage, ActivityIndicator, ScrollView, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { SymbolView } from 'expo-symbols';
