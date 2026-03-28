@@ -21,7 +21,7 @@ CREATE TABLE users (
 -- table for user's preferences
 CREATE TABLE user_preferences (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    -- to select: pl, en, es, de
+    -- to select: pl, en
     language VARCHAR(10) NOT NULL DEFAULT 'en',
     -- created by gemma 3 based on user preferences
     system_prompt TEXT NOT NULL DEFAULT '',
