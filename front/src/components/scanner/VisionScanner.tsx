@@ -101,7 +101,29 @@ export const VisionScanner = () => {
             }
 
             const data = await response.json();
-            setAnalyzeResult(JSON.stringify(data, null, 2));
+            
+            console.log("=== RAW API RESPONSE ===");
+            console.log(JSON.stringify(data, null, 2));
+            console.log("========================");
+            
+            // Czasem backend owija odpowiedź dodatkowo, np. { data: { tour_guide_description: "..." } }
+            // Spróbujmy znaleźć tour_guide_description w różnych miejscach:
+            let extractedDescription = null;
+            if (data && data.raw_data && typeof data.raw_data.tour_guide_description === 'string') {
+                extractedDescription = data.raw_data.tour_guide_description;
+            } else if (data && typeof data.tour_guide_description === 'string') {
+                extractedDescription = data.tour_guide_description;
+            } else if (data && data.data && typeof data.data.tour_guide_description === 'string') {
+                extractedDescription = data.data.tour_guide_description;
+            }
+
+            if (extractedDescription) {
+                console.log("Successfully extracted tour_guide_description!");
+                setAnalyzeResult(extractedDescription);
+            } else {
+                console.warn("Could NOT find 'tour_guide_description' in the response. Falling back to full JSON.");
+                setAnalyzeResult(JSON.stringify(data, null, 2));
+            }
 
         } catch (error: any) {
             console.error('Analyze failed:', error);
@@ -113,8 +135,11 @@ export const VisionScanner = () => {
 
     return (
         <View style={styles.container}>
-            {/* Widok zdjęcia - Zajmuje całą górę */}
-            <View style={styles.photoContainer}>
+            {/* Widok zdjęcia - Minimalizuje się do góry gdy mamy wynik lub analizujemy */}
+            <View style={[
+                styles.photoContainer, 
+                (analyzeResult || isAnalyzing) && styles.photoContainerMinimized
+            ]}>
                 {capturedImage ? (
                     <View style={{ flex: 1, width: '100%' }}>
                         <Image 
@@ -123,22 +148,24 @@ export const VisionScanner = () => {
                             contentFit="cover" 
                         />
                         
-                        <View style={styles.analyzeOverlay}>
-                            <TouchableOpacity 
-                                style={[styles.analyzeButton, isAnalyzing && styles.analyzeButtonDisabled]} 
-                                onPress={analyzeImage}
-                                disabled={isAnalyzing}
-                            >
-                                {isAnalyzing ? (
-                                    <ActivityIndicator color="#000" size="small" />
-                                ) : (
+                        {!analyzeResult && !isAnalyzing && (
+                            <View style={styles.analyzeOverlay}>
+                                <TouchableOpacity 
+                                    style={styles.analyzeButton} 
+                                    onPress={analyzeImage}
+                                >
                                     <SymbolView name="sparkles" size={20} tintColor="#000" />
-                                )}
-                                <Text style={styles.analyzeButtonText}>
-                                    {isAnalyzing ? 'Analyzing...' : 'Analyze Image'}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
+                                    <Text style={styles.analyzeButtonText}>Analyze Image</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        {isAnalyzing && (
+                            <View style={styles.loadingOverlay}>
+                                <ActivityIndicator color="#00FFFF" size="large" />
+                                <Text style={styles.loadingText}>AI is analyzing the place...</Text>
+                            </View>
+                        )}
                     </View>
                 ) : (
                     <View style={styles.emptyState}>
@@ -151,31 +178,44 @@ export const VisionScanner = () => {
                 )}
             </View>
 
-            {/* Kontener na wynik analizy */}
-            {analyzeResult && (
-                <View style={styles.resultContainer}>
-                    <Text style={styles.resultTitle}>Output:</Text>
-                    <ScrollView style={styles.resultScroll} nestedScrollEnabled={true}>
-                        <Text style={styles.resultText}>{analyzeResult}</Text>
-                    </ScrollView>
+            {/* Kontener na wynik analizy - zajmuje CAŁĄ resztę miejsca */}
+            <View style={styles.contentContainer}>
+                {analyzeResult && (
+                    <View style={styles.resultContainer}>
+                        <View style={styles.resultHeader}>
+                            <SymbolView name="info.circle.fill" size={18} tintColor="#00FFFF" />
+                            <Text style={styles.resultTitle}>AI Analysis Output</Text>
+                        </View>
+                        <ScrollView 
+                            style={styles.resultScroll} 
+                            contentContainerStyle={styles.resultContent}
+                            showsVerticalScrollIndicator={false}
+                        >
+                            <Text style={styles.resultText}>
+                                {analyzeResult}
+                            </Text>
+                        </ScrollView>
+                    </View>
+                )}
+            </View>
+
+            {/* Panel dolny - Przyciski akcji (pływające nad wszystkim na samym dole) */}
+            {!isAnalyzing && (
+                <View style={styles.footer}>
+                    <TouchableOpacity style={styles.button} onPress={openCamera}>
+                        <RNImage 
+                            source={require('@/assets/images/tabIcons/camera.png')} 
+                            style={{ width: 24, height: 24, tintColor: '#000' }} 
+                        />
+                        <Text style={styles.buttonText}>New Photo</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={[styles.button, styles.libraryButton]} onPress={openLibrary}>
+                        <SymbolView name="photo.on.rectangle" size={24} tintColor="#00FFFF" />
+                        <Text style={[styles.buttonText, { color: '#00FFFF' }]}>Library</Text>
+                    </TouchableOpacity>
                 </View>
             )}
-
-            {/* Panel dolny - Tylko przyciski akcji */}
-            <View style={styles.footer}>
-                <TouchableOpacity style={styles.button} onPress={openCamera}>
-                    <RNImage 
-                        source={require('@/assets/images/tabIcons/camera.png')} 
-                        style={{ width: 24, height: 24, tintColor: '#000' }} 
-                    />
-                    <Text style={styles.buttonText}>New Photo</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={[styles.button, styles.libraryButton]} onPress={openLibrary}>
-                    <SymbolView name="photo.on.rectangle" size={24} tintColor="#00FFFF" />
-                    <Text style={[styles.buttonText, { color: '#00FFFF' }]}>Library</Text>
-                </TouchableOpacity>
-            </View>
         </View>
     );
 }
@@ -186,10 +226,21 @@ const styles = StyleSheet.create({
         backgroundColor: '#000',
     },
     photoContainer: {
-        flex: 1,
+        flex: 1, // Kiedy nie ma analizy, zajmuje całą dostępną górę
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#050505',
+        overflow: 'hidden',
+    },
+    photoContainerMinimized: {
+        flex: 0,
+        height: 180, // Zminimalizowana wysokość u góry
+        borderBottomWidth: 2,
+        borderBottomColor: '#00FFFF',
+    },
+    contentContainer: {
+        flex: 1, // Zawsze wypełnia przestrzeń poniżej photoContainer
+        backgroundColor: '#0A0A0A',
     },
     fullImage: {
         width: '100%',
@@ -205,12 +256,24 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 2,
     },
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 16,
+    },
+    loadingText: {
+        color: '#00FFFF',
+        fontSize: 14,
+        fontWeight: '600',
+    },
     footer: {
         flexDirection: 'row',
         paddingHorizontal: 24,
-        paddingTop: 16,
-        paddingBottom: 24, // Extra padding to sit above the navigation bar comfortably
-        gap: 16,
+        paddingTop: 24, // Zwiększony odstęp nad przyciskami
+        paddingBottom: 24, 
+        gap: 20, // Większa przerwa między przyciskami New Photo i Library
         backgroundColor: '#000',
         borderTopWidth: 1,
         borderTopColor: '#111',
@@ -241,7 +304,7 @@ const styles = StyleSheet.create({
     },
     analyzeOverlay: {
         position: 'absolute',
-        bottom: 120, // Zwiększony odstęp od dołu, aby nie chował się za czarnym paskiem nav
+        bottom: 30,
         left: 0,
         right: 0,
         alignItems: 'center',
@@ -261,36 +324,41 @@ const styles = StyleSheet.create({
         shadowRadius: 5,
         elevation: 6,
     },
-    analyzeButtonDisabled: {
-        opacity: 0.7,
-    },
     analyzeButtonText: {
         color: '#000',
         fontSize: 16,
         fontWeight: 'bold',
     },
     resultContainer: {
-        maxHeight: 200,
-        backgroundColor: '#111',
-        borderTopWidth: 1,
-        borderTopColor: '#222',
-        padding: 16,
-        paddingBottom: 100, // Zapewnia miejsce nad dolnym menu akcji
+        flex: 1,
+        padding: 20,
+    },
+    resultHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#1A1A1A',
+        paddingBottom: 12,
     },
     resultTitle: {
         color: '#00FFFF',
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: 'bold',
-        marginBottom: 8,
         textTransform: 'uppercase',
         letterSpacing: 1,
     },
     resultScroll: {
-        flexGrow: 0,
+        flex: 1,
+    },
+    resultContent: {
+        paddingBottom: 120, // Duży padding na dole scrolla, by tekst nie chował się pod przyciskami
     },
     resultText: {
-        color: '#FFF',
-        fontSize: 13,
-        fontFamily: 'monospace',
+        color: '#E0E0E0',
+        fontSize: 16,
+        lineHeight: 24,
+        textAlign: 'justify',
     }
 });
