@@ -15,11 +15,15 @@ CREATE TABLE users (
 
 -- table for user's preferences
 CREATE TABLE user_preferences (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    preferred_language VARCHAR(50) NOT NULL,
-    preferred_style VARCHAR(50) NOT NULL,
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    -- to select: pl, en, es, de
+    language VARCHAR(10) NOT NULL DEFAULT 'en',
+    -- to select: casual, historical, formal, professional
+    style VARCHAR(20) NOT NULL DEFAULT 'casual',
     
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
 -- table for user's uniqe visits
 CREATE TABLE visits (
