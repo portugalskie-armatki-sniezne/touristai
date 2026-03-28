@@ -23,8 +23,8 @@ CREATE TABLE user_preferences (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     -- to select: pl, en, es, de
     language VARCHAR(10) NOT NULL DEFAULT 'en',
-    -- to select: casual, historical, formal, professional
-    style VARCHAR(20) NOT NULL DEFAULT 'casual',
+    -- created by gemma 3 based on user preferences
+    system_prompt TEXT NOT NULL DEFAULT '',
     
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
