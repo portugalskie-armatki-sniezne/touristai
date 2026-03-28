@@ -19,7 +19,7 @@ export const VisionScanner = () => {
 
         const chat: Message[] = [
             { role: 'system', content: 'You are a helpful assistant that can see images.' },
-            { role: 'user', content: '<image>\nDescribe what you see in this image.', mediaPath: uri },
+            { role: 'user', content: '<image>\nGet all metadata from pickture which you see - gps coordinates, date, etc.. Tell me whick landmarks do you see, no need to be person specific, but be landmark specific', mediaPath: uri },
         ];
 
         try {
@@ -41,10 +41,8 @@ export const VisionScanner = () => {
         return (
             <View style={styles.center}>
                 <ActivityIndicator size="large" color="#208AEF" />
-                <Text style={styles.loadingText}>Loading model ({(llm.downloadProgress * 100).toFixed(0)}%)...</Text>
-                <Text style={styles.hint}>
-                    Large models (1.6B) can take a minute to load on the first run.
-                </Text>
+                <Text style={styles.loadingText}>Loading AI model ({(llm.downloadProgress * 100).toFixed(0)}%)...</Text>
+                <Text style={styles.hint}>1.6B models take a moment to initialize on first run.</Text>
             </View>
         );
     }
@@ -66,15 +64,15 @@ export const VisionScanner = () => {
                     />
                     
                     <ScrollView style={styles.responseContainer}>
-                        <Text style={styles.label}>AI Analysis:</Text>
+                        <Text style={styles.label}>AI Vision Analysis:</Text>
                         {llm.isGenerating && !llm.response ? (
                             <View style={styles.generatingState}>
                                 <ActivityIndicator size="small" color="#fff" />
-                                <Text style={styles.generatingText}>Analyzing image...</Text>
+                                <Text style={styles.generatingText}>Thinking...</Text>
                             </View>
                         ) : (
                             <Text style={styles.responseText}>
-                                {llm.response || "Waiting for analysis..."}
+                                {llm.response || "Waiting for model to respond..."}
                             </Text>
                         )}
                     </ScrollView>
@@ -82,10 +80,7 @@ export const VisionScanner = () => {
                     <View style={styles.buttonWrapper}>
                         <Button 
                             title="Take another photo" 
-                            onPress={() => {
-                                setCapturedImage(null);
-                                llm.interrupt();
-                            }} 
+                            onPress={() => setCapturedImage(null)} 
                             disabled={llm.isGenerating && !llm.response}
                         />
                     </View>
@@ -99,45 +94,46 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         width: '100%',
-        borderRadius: 20,
+        borderRadius: 24,
         overflow: 'hidden',
         backgroundColor: '#000',
     },
     center: {
         flex: 1,
-        padding: 20, 
+        padding: 24, 
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 400,
     },
     loadingText: {
-        marginTop: 10,
+        color: 'white',
+        marginTop: 16,
         fontWeight: '600',
     },
     hint: {
         fontSize: 12, 
-        color: 'gray', 
+        color: '#666', 
         marginTop: 8,
         textAlign: 'center',
     },
     resultContainer: {
         flex: 1,
-        backgroundColor: '#1a1a1a',
+        backgroundColor: '#111',
     },
     previewImage: {
         width: '100%',
         height: 300,
-        backgroundColor: '#333',
+        backgroundColor: '#222',
     },
     responseContainer: {
         flex: 1,
-        padding: 20,
+        padding: 24,
     },
     label: {
-        color: '#aaa',
+        color: '#208AEF',
         fontSize: 12,
+        fontWeight: 'bold',
         textTransform: 'uppercase',
-        marginBottom: 8,
+        marginBottom: 12,
         letterSpacing: 1,
     },
     responseText: {
@@ -148,15 +144,15 @@ const styles = StyleSheet.create({
     generatingState: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
+        gap: 12,
     },
     generatingText: {
         color: '#208AEF',
         fontSize: 14,
     },
     buttonWrapper: {
-        padding: 20,
+        padding: 24,
         borderTopWidth: 1,
-        borderTopColor: '#333',
+        borderTopColor: '#222',
     }
 });
