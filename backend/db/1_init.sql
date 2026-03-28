@@ -3,7 +3,7 @@
 -- extensions initialization
 CREATE EXTENSION IF NOT EXISTS postgis;
 
--- tables creation
+-- table for users
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -14,6 +14,7 @@ CREATE TABLE users (
 );
 
 
+-- table for user's uniqe visits
 CREATE TABLE visits (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -21,7 +22,7 @@ CREATE TABLE visits (
     -- PostGIS column
     location GEOMETRY(Point, 4326) NOT NULL, 
     
-    identified_object_name VARCHAR(255),
+    identified_object_name VARCHAR(255) NOT NULL,
     raw_facts TEXT,
     stylized_summary TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -31,13 +32,14 @@ CREATE INDEX visits_location_idx ON visits USING GIST (location);
 CREATE INDEX visits_created_at_idx ON visits (created_at);
 
 
-CREATE TABLE daily_summaries (
+-- table for summaries generated based on places visited by user on a given dates
+CREATE TABLE summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     summary_date DATE NOT NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    
+
     UNIQUE(user_id, summary_date) 
 );
 

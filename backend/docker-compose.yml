@@ -51,6 +51,7 @@ services:
     environment:
       - DATABASE_URL=postgres://tourist_user:tourist_password@db:5432/touristai?sslmode=disable
       - DBMATE_MIGRATIONS_DIR=/db
+      - DBMATE_NO_DUMP=true
     command: up
     depends_on:
       db:
