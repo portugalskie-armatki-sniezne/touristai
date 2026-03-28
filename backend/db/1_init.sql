@@ -10,7 +10,12 @@ CREATE TABLE users (
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    -- google auth columns
+    google_id VARCHAR(255) UNIQUE,
+    full_name VARCHAR(255),
+    profile_picture_url VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE
 );
 
 -- table for user's preferences
