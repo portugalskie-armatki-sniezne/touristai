@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from database import get_db, engine, Base
 from app.api.v1.api import api_router
-from app.models.user import User
+from app.models import User
 
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)

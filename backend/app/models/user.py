@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, DateTime, func, ForeignKey, Text
+from sqlalchemy import Column, String, Boolean, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -20,17 +20,7 @@ class User(Base):
     profile_picture_url = Column(String(255))
     is_active = Column(Boolean, default=True)
 
-    # Relacja do preferencji
+    # Relationships
     preferences = relationship("UserPreference", back_populates="user", uselist=False, cascade="all, delete-orphan")
-
-class UserPreference(Base):
-    __tablename__ = "user_preferences"
-
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    language = Column(String(10), nullable=False, default="en")
-    system_prompt = Column(Text, nullable=False, default="")
-    
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    user = relationship("User", back_populates="preferences")
+    visits = relationship("Visit", back_populates="user", cascade="all, delete-orphan")
+    summaries = relationship("Summary", back_populates="user", cascade="all, delete-orphan")
