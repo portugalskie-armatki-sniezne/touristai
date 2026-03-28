@@ -46,9 +46,10 @@ services:
     container_name: touristai-dbmate
     restart: "no"
     volumes:
-      - ./db/migrations:/db/migrations
+      - ./db:/db
     environment:
       - DATABASE_URL=postgres://tourist_user:tourist_password@db:5432/touristai?sslmode=disable
+      - DBMATE_MIGRATIONS_DIR=/db
     command: up
     depends_on:
       db:

@@ -1,0 +1,48 @@
+-- migrate:up
+
+-- extensions initialization
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+-- tables creation
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+
+CREATE TABLE visits (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- PostGIS column
+    location GEOMETRY(Point, 4326) NOT NULL, 
+    
+    identified_object_name VARCHAR(255),
+    raw_facts TEXT,
+    stylized_summary TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX visits_location_idx ON visits USING GIST (location);
+CREATE INDEX visits_created_at_idx ON visits (created_at);
+
+
+CREATE TABLE daily_summaries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    summary_date DATE NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    
+    UNIQUE(user_id, summary_date) 
+);
+
+-- migrate:down
+DROP TABLE IF EXISTS daily_summaries;
+DROP TABLE IF EXISTS visits;
+DROP TABLE IF EXISTS users;
+DROP EXTENSION IF EXISTS postgis;
