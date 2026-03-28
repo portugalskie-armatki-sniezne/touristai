@@ -1,3 +1,5 @@
+# Tourist AI
+
 ```
 cp backend/.env.example backend/.env
 ```
