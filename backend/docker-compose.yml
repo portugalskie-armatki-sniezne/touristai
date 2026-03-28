@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   backend:
     build:
@@ -21,9 +19,12 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
+    depends_on:
+      db:
+        condition: service_healthy
 
   db:
-    image: postgres:15-alpine
+    image: postgis/postgis:15-3.4-alpine
     container_name: touristai-db
     environment:
       - POSTGRES_USER=tourist_user
@@ -39,6 +40,19 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+
+  dbmate:
+    image: amacneil/dbmate
+    container_name: touristai-dbmate
+    restart: "no"
+    volumes:
+      - ./db/migrations:/db/migrations
+    environment:
+      - DATABASE_URL=postgres://tourist_user:tourist_password@db:5432/touristai?sslmode=disable
+    command: up
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   postgres_data:
