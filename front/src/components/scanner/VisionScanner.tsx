@@ -106,15 +106,25 @@ export const VisionScanner = () => {
             console.log(JSON.stringify(data, null, 2));
             console.log("========================");
             
-            // Czasem backend owija odpowiedź dodatkowo, np. { data: { tour_guide_description: "..." } }
-            // Spróbujmy znaleźć tour_guide_description w różnych miejscach:
+            // Spróbujmy znaleźć tour_guide_description w różnych miejscach i obsłużyć tablicę lub string
             let extractedDescription = null;
-            if (data && data.raw_data && typeof data.raw_data.tour_guide_description === 'string') {
-                extractedDescription = data.raw_data.tour_guide_description;
-            } else if (data && typeof data.tour_guide_description === 'string') {
-                extractedDescription = data.tour_guide_description;
-            } else if (data && data.data && typeof data.data.tour_guide_description === 'string') {
-                extractedDescription = data.data.tour_guide_description;
+            
+            const processDescription = (desc: any) => {
+                if (Array.isArray(desc)) return desc.join('\n\n');
+                if (typeof desc === 'string') return desc;
+                return null;
+            };
+
+            if (data && data.raw_data) {
+                extractedDescription = processDescription(data.raw_data.tour_guide_description);
+            }
+            
+            if (!extractedDescription && data) {
+                extractedDescription = processDescription(data.tour_guide_description);
+            }
+            
+            if (!extractedDescription && data && data.data) {
+                extractedDescription = processDescription(data.data.tour_guide_description);
             }
 
             if (extractedDescription) {
