@@ -1,36 +1,38 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
-import { SymbolView } from 'expo-symbols';
+import { StyleSheet, View, TouchableOpacity, Text, ActivityIndicator, Image, Dimensions } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import { AnimatedSplashOverlay } from './animated-icon';
+
+const { width } = Dimensions.get('window');
 
 export const LoginScreen = () => {
   const { signIn, loading } = useAuth();
 
   return (
     <View style={styles.container}>
-      <AnimatedSplashOverlay />
+      {/* Decorative Pill Shapes */}
+      <View style={[styles.pill, styles.pillCyan, { top: -40, right: -100 }]} />
+      <View style={[styles.pill, styles.pillCoral, { top: 120, right: -150 }]} />
       
+      <View style={[styles.pill, styles.pillCyan, { bottom: 120, left: -150 }]} />
+      <View style={[styles.pill, styles.pillCoral, { bottom: -40, left: -100 }]} />
+
       <View style={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Welcome</Text>
-          <Text style={styles.subtitle}>Sign in to access your AI Assistant</Text>
-        </View>
+        <Image 
+          source={require('../../assets/images/logos/logo-toursit-ai.png')} 
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        
+        <Text style={styles.description}>
+          Sightseeing, simplified. Your personal AI guide, tailored to your needs.
+        </Text>
 
         <TouchableOpacity 
           style={styles.googleButton} 
           onPress={signIn}
-          disabled={loading}
           activeOpacity={0.8}
         >
-          {loading ? (
-            <ActivityIndicator color="#000" />
-          ) : (
-            <>
-              <SymbolView name="g.circle.fill" size={24} tintColor="#000" />
-              <Text style={styles.buttonText}>Continue with Google</Text>
-            </>
-          )}
+          <Text style={styles.buttonText}>login with google</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -40,45 +42,53 @@ export const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+  },
+  pill: {
+    position: 'absolute',
+    width: 300,
+    height: 100,
+    borderRadius: 50,
+  },
+  pillCyan: {
+    backgroundColor: '#70E1E1',
+  },
+  pillCoral: {
+    backgroundColor: '#FFA599',
   },
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-    zIndex: 10, // Ensure content is above AnimatedSplashOverlay if needed
+    padding: 40,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 60,
+  logo: {
+    width: width * 0.8,
+    height: 150,
+    marginBottom: 20,
   },
-  title: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 12,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#aaa',
+  description: {
+    fontSize: 18,
+    color: '#444',
     textAlign: 'center',
+    marginBottom: 40,
+    lineHeight: 24,
+    maxWidth: 300,
   },
   googleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#D9D9D9',
     paddingVertical: 14,
-    paddingHorizontal: 32,
+    paddingHorizontal: 40,
     borderRadius: 30,
-    gap: 12,
-    width: '100%',
+    width: 'auto',
+    minWidth: 200,
     justifyContent: 'center',
-    maxWidth: 300,
+    alignItems: 'center',
   },
   buttonText: {
     color: '#000',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '400',
   },
 });

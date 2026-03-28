@@ -13,20 +13,28 @@ import { ExpoResourceFetcher } from 'react-native-executorch-expo-resource-fetch
 
 initExecutorch({ resourceFetcher: ExpoResourceFetcher });
 
+import { PreferencesScreen } from '@/components/PreferencesScreen';
+
 const RootNavigator = () => {
-  // const { user, loading } = useAuth();
+  const { user, loading, hasSeenPreferences } = useAuth();
 
-  // if (loading) {
-  //   return (
-  //     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
-  //       <ActivityIndicator size="large" color="#208AEF" />
-  //     </View>
-  //   );
-  // }
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <ActivityIndicator size="large" color="#70E1E1" />
+      </View>
+    );
+  }
 
-  // if (!user) {
-  //   return <LoginScreen />;
-  // }
+  // Jeśli nie ma użytkownika, ZAWSZE pokazuj LoginScreen
+  if (!user) {
+    return <LoginScreen />;
+  }
+
+  // Jeśli jest użytkownik, ale nie widział preferencji, pokazuj PreferencesScreen
+  if (!hasSeenPreferences) {
+    return <PreferencesScreen />;
+  }
 
   return (
     <>

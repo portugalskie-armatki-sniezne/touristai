@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import Optional
 from pydantic import BaseModel, Field
 from database import get_db
+from app.models.user import User, UserPreference
 from app.models import User, UserPreference
 from app.api.v1.endpoints.deps import get_current_user
 
@@ -13,43 +14,31 @@ class UserSettingsUpdate(BaseModel):
     language: Optional[str] = Field(None, pattern="^(pl|en)$")
     system_prompt: Optional[str] = None
 
-@router.get("/me")
-async def get_my_profile(current_user: User = Depends(get_current_user)):
-    """
-    Zwraca dane profilu wraz z preferencjami.
-    """
-    return {
-        "id": current_user.id,
-        "username": current_user.username,
-        "email": current_user.email,
-        "full_name": current_user.full_name,
-        "profile_picture_url": current_user.profile_picture_url,
-        "settings": {
-            "language": current_user.preferences.language if current_user.preferences else "en",
-            "system_prompt": current_user.preferences.system_prompt if current_user.preferences else ""
-        }
-    }
-
 @router.patch("/me/settings")
 async def update_my_settings(
     settings: UserSettingsUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """
-    Aktualizuje nick (username) oraz preferencje (język, system_prompt).
+    ULTRA-SIMPLIFIED: Updates preferences for the FIRST user found in DB.
+    NO AUTH REQUIRED.
     """
-    # 1. Aktualizacja username w tabeli users
-    if settings.username is not None:
-        # Sprawdź czy username nie jest zajęty
-        existing_user = db.query(User).filter(User.username == settings.username).first()
-        if existing_user and existing_user.id != current_user.id:
-            raise HTTPException(status_code=400, detail="Ten nick jest już zajęty")
-        current_user.username = settings.username
+    current_user = db.query(User).first()
+    
+    if not current_user:
+        # Create test user if none exists
+        current_user = User(
+            username="hackathon_user",
+            email="hackathon@example.com",
+            first_name="Hack",
+            last_name="User"
+        )
+        db.add(current_user)
+        db.commit()
+        db.refresh(current_user)
 
-    # 2. Aktualizacja preferencji w tabeli user_preferences
+    # 1. Update preferences
     if not current_user.preferences:
-        # Jeśli rekord w user_preferences jeszcze nie istnieje, stwórz go
         new_prefs = UserPreference(
             user_id=current_user.id,
             language=settings.language or "en",
@@ -57,13 +46,24 @@ async def update_my_settings(
         )
         db.add(new_prefs)
     else:
-        # Jeśli istnieje, zaktualizuj pola
         if settings.language is not None:
             current_user.preferences.language = settings.language
         if settings.system_prompt is not None:
             current_user.preferences.system_prompt = settings.system_prompt
 
     db.commit()
-    db.refresh(current_user)
-    
-    return {"status": "success", "message": "Ustawienia zostały zaktualizowane"}
+    return {"status": "success", "message": "Updated without auth"}
+
+@router.get("/me")
+async def get_my_profile(db: Session = Depends(get_db)):
+    current_user = db.query(User).first()
+    if not current_user:
+        raise HTTPException(status_code=404, detail="No user found")
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "settings": {
+            "language": current_user.preferences.language if current_user.preferences else "en",
+            "system_prompt": current_user.preferences.system_prompt if current_user.preferences else ""
+        }
+    }
