@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, TouchableOpacity, Text, Dimensions, ScrollView, SafeAreaView } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text, Dimensions, ScrollView, SafeAreaView, ActivityIndicator } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { useAuth } from '../context/AuthContext';
+import { useAI } from '../context/AIContext';
 
 const { width } = Dimensions.get('window');
 
@@ -30,17 +31,60 @@ const InterestLevelSelector = ({ label, value, onValueChange }: { label: string,
 };
 
 export const PreferencesScreen = () => {
-  const { setHasSeenPreferences, signOut } = useAuth();
+  const { setHasSeenPreferences, signOut, token } = useAuth() as any;
+  const { generate, isReady } = useAI();
   const [language, setLanguage] = useState<'Polski' | 'English'>('English');
+  const [isGenerating, setIsGenerating] = useState(false);
   const [interests, setInterests] = useState({
     history: 60,
     sports: 40,
     technology: 80,
   });
 
-  const handleContinue = () => {
-    console.log('Final Preferences:', { language, interests });
-    setHasSeenPreferences(true);
+  const handleContinue = async () => {
+    setIsGenerating(true);
+    try {
+      let systemPrompt = "You are a helpful AI tour guide.";
+      
+      if (isReady) {
+        const prompt = `Generate a concise system prompt for yourself as an AI tour guide. 
+        The user has the following interests (0-100 scale): 
+        History: ${interests.history}, Sports: ${interests.sports}, Technology: ${interests.technology}.
+        The primary language should be ${language}. 
+        Tailor your personality and focus based on these weights. 
+        Output ONLY the system prompt text, nothing else.`;
+        
+        systemPrompt = await generate([
+          { role: 'user', content: prompt }
+        ]);
+      }
+
+      // Send to backend
+      const response = await fetch('http://10.0.2.2:8000/api/v1/users/me/settings', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          language: language === 'Polski' ? 'pl' : 'en',
+          system_prompt: systemPrompt
+        })
+      });
+
+      if (response.ok) {
+        setHasSeenPreferences(true);
+      } else {
+        console.error('Failed to save preferences to backend');
+        // Still proceed for demo purposes if needed, or show error
+        setHasSeenPreferences(true);
+      }
+    } catch (e) {
+      console.error('Error generating system prompt or saving:', e);
+      setHasSeenPreferences(true);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -94,8 +138,18 @@ export const PreferencesScreen = () => {
           />
         </View>
 
-        <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-          <Text style={styles.continueButtonText}>Continue</Text>
+        <TouchableOpacity 
+          style={[styles.continueButton, (isGenerating || !isReady) && styles.continueButtonDisabled]} 
+          onPress={handleContinue}
+          disabled={isGenerating}
+        >
+          {isGenerating ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.continueButtonText}>
+              {isReady ? 'Continue' : 'Initializing AI...'}
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -203,6 +257,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 60,
     borderRadius: 25,
+    minWidth: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  continueButtonDisabled: {
+    backgroundColor: '#666',
   },
   continueButtonText: {
     color: '#fff',

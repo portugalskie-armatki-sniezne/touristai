@@ -8,6 +8,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 type AuthContextType = {
   user: any;
+  token: string | null;
   loading: boolean;
   hasSeenPreferences: boolean;
   setHasSeenPreferences: (value: boolean) => void;
@@ -17,6 +18,7 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  token: null,
   loading: true,
   hasSeenPreferences: false,
   setHasSeenPreferences: () => {},
@@ -28,20 +30,24 @@ export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<any>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasSeenPreferences, _setHasSeenPreferences] = useState(false);
 
-  // Zastąp poniższe ID swoimi rzeczywistymi kluczami z Google Cloud Console
+  // Pobieramy ID z .env (wymaga prefiksu EXPO_PUBLIC_ w Expo)
+  const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+  
+  if (!googleClientId) {
+    console.warn('WARNING: EXPO_PUBLIC_GOOGLE_CLIENT_ID is not defined in .env file!');
+  }
+
   const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: 'YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com',
-    iosClientId: 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com',
-    webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+    androidClientId: googleClientId,
+    iosClientId: googleClientId,
+    webClientId: googleClientId,
   });
 
   useEffect(() => {
-    // Odkomentuj poniższą linię, aby WYMUSIĆ reset przy każdym odświeżeniu:
-    AsyncStorage.clear(); 
-    
     checkLocalUser();
     checkPreferences();
   }, []);
@@ -49,8 +55,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (response?.type === 'success') {
       const { authentication } = response;
-      if (authentication?.accessToken) {
-        getUserInfo(authentication.accessToken);
+      if (authentication?.idToken) {
+        authenticateWithBackend(authentication.idToken);
       }
     }
   }, [response]);
@@ -58,8 +64,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const checkLocalUser = async () => {
     try {
       const userJSON = await AsyncStorage.getItem('@user');
-      if (userJSON) {
+      const savedToken = await AsyncStorage.getItem('@token');
+      if (userJSON && savedToken) {
         setUser(JSON.parse(userJSON));
+        setToken(savedToken);
       }
     } catch (e) {
       console.error('Failed to load user info', e);
@@ -88,35 +96,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const getUserInfo = async (token: string) => {
+  const authenticateWithBackend = async (googleIdToken: string) => {
     try {
-      const res = await fetch('https://www.googleapis.com/userinfo/v2/me', {
-        headers: { Authorization: `Bearer ${token}` },
+      setLoading(true);
+      const res = await fetch('http://10.0.2.2:8000/api/v1/auth/google/authenticate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: googleIdToken }),
       });
-      const userInfo = await res.json();
-      await AsyncStorage.setItem('@user', JSON.stringify(userInfo));
-      setUser(userInfo);
+      
+      const data = await res.json();
+      if (data.status === 'success') {
+        await AsyncStorage.setItem('@user', JSON.stringify(data.user));
+        await AsyncStorage.setItem('@token', data.access_token);
+        setUser(data.user);
+        setToken(data.access_token);
+      }
     } catch (e) {
-      console.error('Failed to fetch user info', e);
+      console.error('Backend authentication failed', e);
+    } finally {
+      setLoading(false);
     }
   };
 
   const signIn = async () => {
-    // Placeholder: Set dummy user to proceed to preferences/app without real auth
-    const dummyUser = { name: 'Test User', email: 'test@example.com' };
-    await AsyncStorage.setItem('@user', JSON.stringify(dummyUser));
-    setUser(dummyUser);
+    promptAsync();
   };
 
   const signOut = async () => {
     await AsyncStorage.removeItem('@user');
+    await AsyncStorage.removeItem('@token');
     await AsyncStorage.removeItem('@hasSeenPreferences');
     setUser(null);
+    setToken(null);
     _setHasSeenPreferences(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, hasSeenPreferences, setHasSeenPreferences, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, token, loading, hasSeenPreferences, setHasSeenPreferences, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
