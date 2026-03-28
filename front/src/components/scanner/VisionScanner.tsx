@@ -106,32 +106,23 @@ export const VisionScanner = () => {
             console.log(JSON.stringify(data, null, 2));
             console.log("========================");
             
-            // Spróbujmy znaleźć tour_guide_description w różnych miejscach i obsłużyć tablicę lub string
-            let extractedDescription = null;
+            // Zamiast wyciągać tylko sam tekst, zapisujemy cały obiekt (najlepiej ten ze środka raw_data)
+            // Dzięki temu interfejs ma dostęp do .name, .city, .is_landmark itd.
+            let extractedData = null;
             
-            const processDescription = (desc: any) => {
-                if (Array.isArray(desc)) return desc.join('\n\n');
-                if (typeof desc === 'string') return desc;
-                return null;
-            };
-
             if (data && data.raw_data) {
-                extractedDescription = processDescription(data.raw_data.tour_guide_description);
-            }
-            
-            if (!extractedDescription && data) {
-                extractedDescription = processDescription(data.tour_guide_description);
-            }
-            
-            if (!extractedDescription && data && data.data) {
-                extractedDescription = processDescription(data.data.tour_guide_description);
+                extractedData = data.raw_data;
+            } else if (data && data.data) {
+                extractedData = data.data;
+            } else {
+                extractedData = data;
             }
 
-            if (extractedDescription) {
-                console.log("Successfully extracted tour_guide_description!");
-                setAnalyzeResult(extractedDescription);
+            if (extractedData) {
+                console.log("Successfully extracted full dataset for UI!");
+                setAnalyzeResult(extractedData);
             } else {
-                console.warn("Could NOT find 'tour_guide_description' in the response. Falling back to full JSON.");
+                console.warn("Could NOT find valid dataset. Falling back to full JSON.");
                 setAnalyzeResult(JSON.stringify(data, null, 2));
             }
 
@@ -201,9 +192,56 @@ export const VisionScanner = () => {
                             contentContainerStyle={styles.resultContent}
                             showsVerticalScrollIndicator={false}
                         >
-                            <Text style={styles.resultText}>
-                                {analyzeResult}
-                            </Text>
+                            {typeof analyzeResult === 'string' ? (
+                                <Text style={styles.resultText}>{analyzeResult}</Text>
+                            ) : (
+                                <View style={styles.parsedContainer}>
+                                    {analyzeResult?.name && <Text style={styles.placeName}>{analyzeResult.name}</Text>}
+                                    
+                                    {(analyzeResult?.city || analyzeResult?.country) && (
+                                        <Text style={styles.locationText}>
+                                            📍 {[analyzeResult.city, analyzeResult.country].filter(Boolean).join(', ')}
+                                        </Text>
+                                    )}
+
+                                    <View style={styles.badgesContainer}>
+                                        {analyzeResult?.is_landmark && (
+                                            <View style={styles.badge}><Text style={styles.badgeText}>🏛️ Landmark</Text></View>
+                                        )}
+                                        {analyzeResult?.is_restaurant_or_hotel && (
+                                            <View style={styles.badge}><Text style={styles.badgeText}>🏨 Venue</Text></View>
+                                        )}
+                                    </View>
+
+                                    {analyzeResult?.is_restaurant_or_hotel && analyzeResult?.booking_or_menu_link ? (
+                                        <TouchableOpacity 
+                                            onPress={() => Linking.openURL(analyzeResult.booking_or_menu_link)} 
+                                            style={styles.linkButton}
+                                        >
+                                            <SymbolView name="link" size={18} tintColor="#000" />
+                                            <Text style={styles.linkButtonText}>Open Menu / Booking</Text>
+                                        </TouchableOpacity>
+                                    ) : null}
+
+                                    {analyzeResult?.tour_guide_description && (
+                                        <View style={styles.section}>
+                                            <Text style={styles.sectionTitle}>📖 Description</Text>
+                                            <Text style={styles.resultText}>
+                                                {Array.isArray(analyzeResult.tour_guide_description) 
+                                                    ? analyzeResult.tour_guide_description.join('\n\n') 
+                                                    : analyzeResult.tour_guide_description}
+                                            </Text>
+                                        </View>
+                                    )}
+
+                                    {analyzeResult?.internet_opinions ? (
+                                        <View style={styles.section}>
+                                            <Text style={styles.sectionTitle}>💬 What people say</Text>
+                                            <Text style={styles.resultText}>{analyzeResult.internet_opinions}</Text>
+                                        </View>
+                                    ) : null}
+                                </View>
+                            )}
                         </ScrollView>
                     </View>
                 )}
@@ -370,5 +408,68 @@ const styles = StyleSheet.create({
         fontSize: 16,
         lineHeight: 24,
         textAlign: 'justify',
+    },
+    parsedContainer: {
+        gap: 4,
+    },
+    placeName: {
+        color: '#FFF',
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 4,
+    },
+    locationText: {
+        color: '#00FFFF',
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 12,
+    },
+    badgesContainer: {
+        flexDirection: 'row',
+        gap: 8,
+        flexWrap: 'wrap',
+        marginBottom: 16,
+    },
+    badge: {
+        backgroundColor: '#1A1A1A',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    badgeText: {
+        color: '#FFF',
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    linkButton: {
+        flexDirection: 'row',
+        backgroundColor: '#00FFFF',
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        marginBottom: 16,
+    },
+    linkButtonText: {
+        color: '#000',
+        fontWeight: 'bold',
+        fontSize: 15,
+    },
+    section: {
+        marginTop: 8,
+        marginBottom: 16,
+    },
+    sectionTitle: {
+        color: '#FFF',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#222',
+        paddingBottom: 8,
     }
 });
