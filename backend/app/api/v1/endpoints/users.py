@@ -4,6 +4,8 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from database import get_db
 from app.models.user import User, UserPreference
+from app.models import User, UserPreference
+from app.api.v1.endpoints.deps import get_current_user
 
 router = APIRouter()
 

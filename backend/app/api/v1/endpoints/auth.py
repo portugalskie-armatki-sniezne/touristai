@@ -7,7 +7,7 @@ import httpx
 from datetime import datetime, timedelta
 from jose import jwt
 from database import get_db
-from app.models.user import User
+from app.models import User
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
