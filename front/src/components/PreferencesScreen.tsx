@@ -9,18 +9,18 @@ const { width } = Dimensions.get('window');
 // Nowy, niezawodny selektor poziomów (zamiast problematycznego slidera)
 const InterestLevelSelector = ({ label, value, onValueChange }: { label: string, value: number, onValueChange: (val: number) => void }) => {
   const levels = [20, 40, 60, 80, 100];
-  
+
   return (
     <View style={styles.selectorContainer}>
       <Text style={styles.selectorLabel}>{label}</Text>
       <View style={styles.levelsWrapper}>
         {levels.map((level) => (
-          <TouchableOpacity 
+          <TouchableOpacity
             key={level}
             activeOpacity={0.7}
             onPress={() => onValueChange(level)}
             style={[
-              styles.levelBlock, 
+              styles.levelBlock,
               value >= level ? styles.levelBlockActive : styles.levelBlockInactive
             ]}
           />
@@ -45,7 +45,7 @@ export const PreferencesScreen = () => {
     setIsGenerating(true);
     try {
       let systemPrompt = "You are a helpful AI tour guide.";
-      
+
       if (isReady) {
         console.log('Generating persona with local LLM...');
         // Prostszy, bardziej bezpośredni prompt
@@ -55,6 +55,7 @@ export const PreferencesScreen = () => {
         Write only the persona description.`;
 
         const rawResponse = await generate([
+          { role: 'system', content: 'You are a helpful assistant. You help with writing prompts about user-interests' },
           { role: 'user', content: prompt }
         ]);
 
@@ -63,19 +64,19 @@ export const PreferencesScreen = () => {
 
         // Jeśli model zwrócił śmieci lub puste, użyj domyślnego
         if (systemPrompt.length < 10 || systemPrompt.includes('system prompt text')) {
-           systemPrompt = `You are a helpful tour guide specialized in ${interests.history > 50 ? 'history' : 'general sightseeing'} and ${interests.technology > 50 ? 'tech' : 'culture'}. Respond in ${language}.`;
+          systemPrompt = `You are a helpful tour guide specialized in ${interests.history > 50 ? 'history' : 'general sightseeing'} and ${interests.technology > 50 ? 'tech' : 'culture'}. Respond in ${language}.`;
         }
 
         console.log('Cleaned Prompt:', systemPrompt);
       }
- else {
+      else {
         console.warn('AI Model not ready, using default prompt');
       }
 
       // Send to backend (NO AUTH HEADER NEEDED NOW)
       const backendUrl = 'http://10.0.2.2:8000/api/v1/users/me/settings';
       console.log('Sending to backend:', backendUrl);
-      
+
       const response = await fetch(backendUrl, {
         method: 'PATCH',
         headers: {
@@ -118,17 +119,17 @@ export const PreferencesScreen = () => {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>select language</Text>
-        
+
         <View style={styles.buttonGroup}>
-          <TouchableOpacity 
-            style={[styles.langButton, language === 'Polski' && styles.langButtonActive]} 
+          <TouchableOpacity
+            style={[styles.langButton, language === 'Polski' && styles.langButtonActive]}
             onPress={() => setLanguage('Polski')}
           >
             <Text style={styles.buttonText}>Polski</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.langButton, language === 'English' && styles.langButtonActive]} 
+
+          <TouchableOpacity
+            style={[styles.langButton, language === 'English' && styles.langButtonActive]}
             onPress={() => setLanguage('English')}
           >
             <Text style={styles.buttonText}>English</Text>
@@ -138,25 +139,25 @@ export const PreferencesScreen = () => {
         <Text style={styles.title}>choose your interests</Text>
 
         <View style={styles.interestsWrapper}>
-          <InterestLevelSelector 
-              label="History" 
-              value={interests.history} 
-              onValueChange={(v) => setInterests(prev => ({ ...prev, history: v }))} 
+          <InterestLevelSelector
+            label="History"
+            value={interests.history}
+            onValueChange={(v) => setInterests(prev => ({ ...prev, history: v }))}
           />
-          <InterestLevelSelector 
-              label="Sports" 
-              value={interests.sports} 
-              onValueChange={(v) => setInterests(prev => ({ ...prev, sports: v }))} 
+          <InterestLevelSelector
+            label="Sports"
+            value={interests.sports}
+            onValueChange={(v) => setInterests(prev => ({ ...prev, sports: v }))}
           />
-          <InterestLevelSelector 
-              label="Technology" 
-              value={interests.technology} 
-              onValueChange={(v) => setInterests(prev => ({ ...prev, technology: v }))} 
+          <InterestLevelSelector
+            label="Technology"
+            value={interests.technology}
+            onValueChange={(v) => setInterests(prev => ({ ...prev, technology: v }))}
           />
         </View>
 
-        <TouchableOpacity 
-          style={[styles.continueButton, isGenerating && styles.continueButtonDisabled]} 
+        <TouchableOpacity
+          style={[styles.continueButton, isGenerating && styles.continueButtonDisabled]}
           onPress={handleContinue}
           disabled={isGenerating}
         >
@@ -168,7 +169,7 @@ export const PreferencesScreen = () => {
             </Text>
           )}
         </TouchableOpacity>
-        
+
         {!isReady && !isGenerating && (
           <Text style={styles.aiStatus}>AI initializing in background...</Text>
         )}
